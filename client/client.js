@@ -1,6 +1,9 @@
 var QStoreClient = function(socketurl) {
-	this.socket = new WebSocket('ws://echo.websocket.org');
+	this.socket = new WebSocket(socketurl);
     this.callbackTable = {};
+    if (!window.location.origin)
+   		window.location.origin = window.location.protocol+"//"+window.location.host;
+    this.qstore = new QStore(window.location.origin);
 
     // TODO: load local store into memory
     this.socket.onopen = function(evt) {
