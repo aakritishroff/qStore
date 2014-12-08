@@ -1,0 +1,31 @@
+{
+  "name": "qStore",
+  "version": "1.0.0",
+  "description": "node.js + mongoDB + websockets server",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aakritishroff/qStore.git"
+  },
+  "keywords": [
+    "qStore"
+  ],
+  "author": "Aakriti Shroff (aakriti@mit.edu)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/aakritishroff/qStore/issues"
+  },
+  "homepage": "https://github.com/aakritishroff/qStore",
+  "dependencies": {
+    "dict": "^1.4.0",
+    "express": "^4.10.4",
+    "mocha": "^2.0.1",
+    "should": "^4.3.0",
+    "socket.io": "^1.2.1",
+    "socket.io-client": "^1.2.1",
+    "underscore": "^1.7.0"
+  }
+}
