@@ -8,19 +8,25 @@ var QStoreClient = function() {
 
     // TODO: load local store into memory
     this.socket.on('connection', function(msg) {
-    	console.log('Connected to: ' + evt.currentTarget.URL);
+    	console.log('Connected to server');
     });
 
     this.socket.on('find', function(msg) {
-
+    	var init_callback = this.callbackTable[msg['qid']]['init_response'];
+    	init_callback(msg['status'], msg['data']);
+    	if (msg['status'] === 'success') {
+    		this.qstore.addQuery(msg['qid'], msg['data']);	
+    	}
     });
 
     this.socket.on('update', function(msg) {
-
+    	var init_callback = this.callbackTable[msg['qid']]['init_response'];
+    	init_callback(msg['status'], msg['data']);
     });
 
     this.socket.on('create', function(msg) {
-
+    	var init_callback = this.callbackTable[msg['qid']]['init_response'];
+    	init_callback(msg['status'], msg['data']);
     });
 
     // evict doesn't actually need a response
@@ -29,27 +35,25 @@ var QStoreClient = function() {
     // });
 
     this.socket.on('delete', function(msg) {
-
+    	var init_callback = this.callbackTable[msg['qid']]['init_response'];
+    	init_callback(msg['status'], msg['data']);
+    	delete this.callbackTable[msg['qid']];
+    	if (msg['status'] === 'success') {
+    		this.qstore.delete(msg['data']);
+    	}
     });
 
-    this.socket.on('subscription_update', function(msg) {
-
+    this.socket.on('data_update', function(msg) {
+    	var update_callback = this.callbackTable[msg['qid']]['update_response'];
+    	update_callback(msg['data']);
+    	this.qstore.updateData(msg['data']);
     });
 
-    // handles socket errors
-    this.socket.onerror = function(error) {
-    	console.log('WebSocket Error: ' + error);
-    };
-
-    this.socket.onmessage = function(event) {
-    	// figure out what type of message it is. 
-    	// update qstore appropriately. utilize callback 
-    	// function to notify the app. 
-    };
-
-    this.socket.onclose = function(event) {
-    	console.log('socket closed');
-    };
+    this.socket.on('query_update', function(msg) {
+    	var update_callback = this.callbackTable[msg['qid']]['update_response'];
+    	update_callback(msg['data']);
+    	this.qstore.addNewData(msg['qid'], msg['data']);
+    });
 }
 
 // create a new object/entry on the server
@@ -57,7 +61,7 @@ QStoreClient.prototype.create = function(data, callback) {
 	var qid = this.writeSeqNo;
 	this.writeSeqNo += 1;
 	var msg = {'qid': qid, 'data': data};
-	this.callbackTable[qid] = {'init': callback};
+	this.callbackTable[qid] = {'init_response': callback};
 	this.socket.emit('create', msg);
 }
 
@@ -66,7 +70,7 @@ QStoreClient.prototype.update = function(criteria, data, callback) {
 	var qid = this.writeSeqNo;
 	this.writeSeqNo += 1;
 	var msg = {'qid': qid, 'criteria': criteria, 'data': data};
-	this.callbackTable[qid] = {'init': callback};
+	this.callbackTable[qid] = {'init_response': callback};
 	this.socket.emit('update', msg);
 }
 
