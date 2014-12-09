@@ -1,13 +1,63 @@
+var jf = requrie("jsonfile");
+var util = require("util");
 var QStore = function (appname, qstoreclient) {
 	this.appname = appname;
 	this.queryTable = {}; // maps query_id to list of obj ids
 	this.dataTable = {}; // maps obj_id to it's data
+    this.frequencyTable = {}
 	this.qstoreclient = qstoreclient;
-	// load data from file
-	// periodically flush to disk
-	// need to figure out eviction policy including how to 
-	//   maintain a size limit on qstore. 
+    // Down here the code from Shaun
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var text = reader.result;
+        var qDF = JSON.parse(text);
+        this.queryTable = qDF['queryTable'];
+        this.dataTable = qDF['dataTable'];
+        this.frequencyTable = qDF['frequencyTable']
+    };
+
+    reader.readAsText("LocalFile.json")
+
+    setInterval(this.dumpToFile, 1e7);
+};
+
+//TODO: Happy
+
+QStore.prototype.dumpToFile = function() {
+    var dumpJson = {'queryTable': this.queryTable,
+                    'dataTable': this.dataTable,
+                    'frequencyTable': this.frequencyTable};
+    var dumpString = JSON.stringify(dumpJson);
+
+    function onInitFs(fs) {
+
+    fs.root.getFile('log.txt', {create: true}, function(fileEntry) {
+
+    // Create a FileWriter object for our FileEntry (log.txt).
+    fileEntry.createWriter(function(fileWriter) {
+
+      fileWriter.onwriteend = function(e) {
+        console.log('Write completed.');
+      };
+
+      fileWriter.onerror = function(e) {
+        console.log('Write failed: ' + e.toString());
+      };
+
+      // Create a new Blob and write it to log.txt.
+      var blob = new Blob(['Lorem Ipsum'], {type: 'text/plain'});
+
+      fileWriter.write(blob);
+
+    }, errorHandler);
+
+  }, errorHandler);
+
 }
+
+window.requestFileSystem(window.PERMANENT, 1024*1024, onInitFs, errorHandler);
+
+};
 
 QStore.prototype.find = function(qid, criteria) {
 	// check to see if we have run the query before. 
