@@ -25,13 +25,11 @@ describe("Test Server",function(){
 
       client2.on('connect', function(data){
         client2.emit('create', {qid:'2', data:{author:'bob', post:'alicepost2'}});
-        console.log({qid:'2', data:{author:'bob', post:'alicepost2'}});
       });
 
       client2.on('create', function(response){
         numObj += 1;
         response.qid.should.equal('2');
-        console.log(response);
         client2.disconnect();
       });
     });
