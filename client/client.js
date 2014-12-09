@@ -83,7 +83,7 @@ QStoreClient.prototype.find = function(criteria, callback1, callback2) {
 	var hash = CryptoJS.MD5(JSON.stringify(criteria));
 	var qid = hash.toString(CryptoJS.enc.Hex);
 	this.callbackTable[qid] = {'init_response': callback1, 'update_response': callback2};
-	this.qstore.find(qid, hash);
+	this.qstore.find(qid, criteria);
 }
 
 // delete all objects that fit the given params
