@@ -1,5 +1,5 @@
 var QStoreClient = function() {
-	this.socket = io();
+	this.socket = io("http://localhost:8000");
     this.callbackTable = {};
     if (!window.location.origin)
    		window.location.origin = window.location.protocol+"//"+window.location.host;

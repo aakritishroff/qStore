@@ -1,62 +1,62 @@
-var jf = requrie("jsonfile");
-var util = require("util");
+//var jf = requrie("jsonfile");
+//var util = require("util");
 var QStore = function (appname, qstoreclient) {
 	this.appname = appname;
 	this.queryTable = {}; // maps query_id to list of obj ids
 	this.dataTable = {}; // maps obj_id to it's data
     this.frequencyTable = {}
 	this.qstoreclient = qstoreclient;
-    // Down here the code from Shaun
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        var text = reader.result;
-        var qDF = JSON.parse(text);
-        this.queryTable = qDF['queryTable'];
-        this.dataTable = qDF['dataTable'];
-        this.frequencyTable = qDF['frequencyTable']
-    };
 
-    reader.readAsText("LocalFile.json")
+	window.requestFileSystem = window.requestFileSystem || window.webkitRequestFileSystem;
 
-    setInterval(this.dumpToFile, 1e7);
+	var onInitFs = function(fs) {
+        console.log('init fs called');
+        fs.root.getFile('query_table.json', {create: true, exclusive: true}, function(fileEntry) {
+            fileEntry.file(function(file) {
+                console.log('reading file');
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    if (reader.result !== "") {
+                        this.queryTable = JSON.parse(reader.result);
+                        // must store query itself in addition to qid
+                        // needed to fetch dids on startup
+                    }
+                };
+                reader.readAsText(file);
+            }, this.fileErrorHandler);
+        }, this.fileErrorHandler);
+    }
+    
+    window.requestFileSystem(window.TEMPORARY, 1024*1024, onInitFs, this.fileErrorHandler);
+
+//    setInterval(this.dumpToFile, 10000);
 };
 
 //TODO: Happy
 
 QStore.prototype.dumpToFile = function() {
-    var dumpJson = {'queryTable': this.queryTable,
-                    'dataTable': this.dataTable,
-                    'frequencyTable': this.frequencyTable};
-    var dumpString = JSON.stringify(dumpJson);
+    console.log("dumping to file");
+    
+    var onInitFs = function(fs) {
+        fs.root.getFile('query_table.json', {create: true}, function(fileEntry) {
+            fileEntry.createWriter(function(fileWriter) {
+                fileWriter.onwriteend = function(e) {
+                    console.log('Write completed.');
+                }
+            
+                fileWriter.onerror = function(e) {
+                    console.log('Write failed: ' + e.toString());
+                }
 
-    function onInitFs(fs) {
+                var dumpData = JSON.stringify(this.queryTable);
 
-    fs.root.getFile('log.txt', {create: true}, function(fileEntry) {
+                fileWriter.write(dumpData);
 
-    // Create a FileWriter object for our FileEntry (log.txt).
-    fileEntry.createWriter(function(fileWriter) {
+            }, this.fileErrorHandler);
+        }, this.fileErrorHandler);
+    }
 
-      fileWriter.onwriteend = function(e) {
-        console.log('Write completed.');
-      };
-
-      fileWriter.onerror = function(e) {
-        console.log('Write failed: ' + e.toString());
-      };
-
-      // Create a new Blob and write it to log.txt.
-      var blob = new Blob(['Lorem Ipsum'], {type: 'text/plain'});
-
-      fileWriter.write(blob);
-
-    }, errorHandler);
-
-  }, errorHandler);
-
-}
-
-window.requestFileSystem(window.PERMANENT, 1024*1024, onInitFs, errorHandler);
-
+    window.requestFileSystem(window.TEMPORARY, 1024*1024, onInitFs, this.fileErrorHandler);
 };
 
 QStore.prototype.evictOneQuery = function() {
@@ -151,4 +151,8 @@ QStore.prototype.delete = function(list_dids) {
 		}
 		delete this.dataTable[list_dids[i]];
 	}
+}
+
+QStore.prototype.fileErrorHandler = function(error) {
+    console.log('Error: ' + error.message);
 }
