@@ -6,6 +6,7 @@ var app = express();
 
 var server = require('http').createServer(app);
 var io = require('socket.io').listen(server);
+var _ = require('underscore')
 
 var dict = require('dict');
 
@@ -29,20 +30,22 @@ function fatalError(err) {
     }
 }
 
-var addQuery = function(qid, qString, client, docs){
+var addQuery = function(qid, qString, client){
 	var qData = queryPool.get(qid);
 	if (qData != undefined) {
-		console.log(qData);
-		qData.clients.push(client);
+		if (qData.clients.indexOf(client) == -1){
+			qData.clients.push(client);
+		}
 	}
-	queryPool.set(qid, new Query(qString, client, docs));
+	else {
+		queryPool.set(qid, new Query(qString, client));
+	}
 };
 
-var Query = function(qString, client, docs){
+var Query = function(qString, client){
 	this.qString = qString;
-	this.clients = []//new Set();
+	this.clients = []
 	this.clients.push(client);
-	this.docs = docs;
 };
 
 //setup mongodb
@@ -54,22 +57,29 @@ var mongo = require('mongodb'),
 	dbPort = 27017,
 	mongoServer = new mongo.Server(dbHost,dbPort,{}),
 	db = new mongo.Db(dbName, mongoServer, {w: 'majority', auto_reconnect: true}),
-	testData,
-	qStoreData;
+	testData;
+var tempData;
+var qStoreData;
 
 
 //init
 db.open(function(err){
 	fatalError(err);
-	db.collection("testData", function(err2, collection){
+	db.createCollection("testData", function(err2, collection){
 		fatalError(err2);
 		testData = collection;
 	});
 
-	db.collection("qStoreData", function(err3, collection){
+	db.createCollection("qStoreData", function(err3, collection){
 		fatalError(err3);
 		qStoreData = collection;
 	});
+
+	db.createCollection("tempData", function(err3, collection){
+		fatalError(err3);
+		tempData = collection;
+	});
+
 
 });
 
@@ -88,49 +98,83 @@ server.listen(port, function() {
  * 	Serving client connections
  */
 io.sockets.on('connection', function(socket){
-	logMessage('New Client connected...\n'+socket.id);
+	logMessage('New Client connected with socket.id: '+ socket.id);
 	allClients.push(socket.id);
 	++connCounter;
 	subscribedTo.set(socket.id, []);
 	logMessage('Total connections:' + connCounter);
+	socket.emit('connection', {status:'OK'});
 
 	socket.on('create', function(query){
-		if (query.op !== 'create'){ fatalError('Op mismatch. Incorrect op specified in create query.'); }
-		logMessage('Recieved Create query with qid:' + query.qid + 'data: ' + query.data);
+		logMessage('Recieved Create query with qid: ' + query.qid + 'data: ' + JSON.stringify(query.data));
 		testData.insert(query.data, {w:1}, function(err, result){
 			fatalError(err);
-			console.log(result[0]._id);
 			var newdid = new ObjectId(result[0]._id);
-			var clist = []//new Set();
+			var clist = []
 			subscriptions.set(newdid.toHexString(), clist.push(socket.id));
 			subscribedTo.set(socket.id, newdid);
-			socket.emit('message', {qid: query.qid, did: newdid.toHexString(), status: 'OK'});
-			//rerun queries
-			/*queryPool.forEach(function(value, key){
 
-			});*/
+			//INSERT INTO TEMP COLLECTION TO RERUN QUERIES
+			tempData.insert(query.data, {w:1}, function(temperr, tempresult){
+				fatalError(err);
+				socket.emit('create', {qid: query.qid, data: {did: newdid.toHexString(), doc: result[0]}, status: 'OK'});
+				queryPool.forEach(function(value, key){
+					var repeatQ = value.qString;
+					var toNotify = value.clients;
+
+					//RERUN QUERIES
+					tempData.find(repeatQ.criteria).toArray(function(err, valNotify){
+						fatalError(err);
+						if (valNotify.length != 0){
+							console.log(value);
+							console.log(key);
+							toNotify.forEach(function(entry){
+								logMessage("Notifying client: " + entry);
+								io.sockets.to(entry).emit('notify-new', { seq: 1, data: {qid: key, did: newdid.toHexString(), doc: valNotify[0] }, status: 'OK' });
+							});
+							
+						}
+					});
+				});
+				tempData.remove({}, {w:1}, function(rm_rr, numRemoved){
+					logMessage("Num records removed from tempData: " + numRemoved);
+				});
+			});
 		});
-
 	});
 
 	socket.on('find', function(query){
-		if (query.op !== 'find'){ fatalError('Op mismatch. Incorrect op specified in find query.'); }
-		logMessage('Recieved Find query with qid:' + query.qid + 'data: ' + query.data);
-		
-		if (!queryPool.has(query.qid)){
-			testData.find(query.data).toArray(function(err, result){
+		logMessage('Recieved Find query with qid: ' + query.qid + ' data: ' + JSON.stringify(query.criteria));
+		testData.find(query.criteria).toArray(function(err, result){
 				fatalError(err);
-				socket.emit('message', {qid: query.qid, docs: result, status: 'OK'});
-				addQuery(query.qid, query, socket.id, result);
-				console.dir(result);
-			});
-		} else {
+				addQuery(query.qid, query, socket.id);
+				socket.emit('find', {qid: query.qid, data: {docs: result}, status: 'OK'});
+		});
+		
+		
+		//console.log(queryPool.size);
+
+		/*else {
+			logMessage('Found query with qid:' + query.qid);
 			var result = queryPool.get(query.qid);
 			socket.emit('message', {qid: query.qid, docs: result, status: 'OK'});
 			addQuery(query.qid, query, socket.id, result);
-			console.dir(result);
-		}
+			
+		}*/
+
+		/*				var count = tempData.count({}, function(e, c){
+						logMessage('After insert num of objects in tempData. Count: ' + c);
+					}); */
+
+				/*,function(err_rm, numRemoved){
+					fatalError(err_rm);
+					var count = tempData.count({}, function(e, c){
+						logMessage('Removed all objects from tempData. numRemoved: ' + numRemoved);
+					});	
+				});*/
+				
 	});
+
 
 	socket.on('update', function(query){
 
@@ -142,8 +186,7 @@ io.sockets.on('connection', function(socket){
 
 
 	socket.on('disconnect', function(){
-		logMessage(queryPool.get('3'));
-		logMessage('Client disconnected...\n');
+		logMessage('Client disconnected. Socket id: ' + socket.id + '\n');
 		var i = allClients.indexOf(socket.id);
 		if(i != -1) {allClients.splice(i, 1);}
 		--connCounter;
