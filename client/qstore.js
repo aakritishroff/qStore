@@ -4,59 +4,28 @@ var QStore = function (appname, qstoreclient) {
 	this.appname = appname;
 	this.queryTable = {}; // maps query_id to list of obj ids
 	this.dataTable = {}; // maps obj_id to it's data
-    this.frequencyTable = {}
+    this.frequencyTable = {};
 	this.qstoreclient = qstoreclient;
-
-	window.requestFileSystem = window.requestFileSystem || window.webkitRequestFileSystem;
-
-	var onInitFs = function(fs) {
-        console.log('init fs called');
-        fs.root.getFile('query_table.json', {create: true, exclusive: true}, function(fileEntry) {
-            fileEntry.file(function(file) {
-                console.log('reading file');
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    if (reader.result !== "") {
-                        this.queryTable = JSON.parse(reader.result);
-                        // must store query itself in addition to qid
-                        // needed to fetch dids on startup
-                    }
-                };
-                reader.readAsText(file);
-            }, this.fileErrorHandler);
-        }, this.fileErrorHandler);
+    this.tableDirty = false;
+    console.log(this.queryTable);
+    if (typeof(Storage) !== "undefined" && localStorage.queryTable && localStorage.queryTable !== "undefined") {
+        console.log("ls: " + localStorage.queryTable);
+        this.queryTable = JSON.parse(localStorage.queryTable);
     }
-    
-    window.requestFileSystem(window.TEMPORARY, 1024*1024, onInitFs, this.fileErrorHandler);
-
-//    setInterval(this.dumpToFile, 10000);
+    setInterval(this.dumpToFile, 30000, this.queryTable, this.tableDirty);
 };
 
 //TODO: Happy
 
-QStore.prototype.dumpToFile = function() {
+QStore.prototype.dumpToFile = function(queryTable, tableDirty) {
     console.log("dumping to file");
-    
-    var onInitFs = function(fs) {
-        fs.root.getFile('query_table.json', {create: true}, function(fileEntry) {
-            fileEntry.createWriter(function(fileWriter) {
-                fileWriter.onwriteend = function(e) {
-                    console.log('Write completed.');
-                }
-            
-                fileWriter.onerror = function(e) {
-                    console.log('Write failed: ' + e.toString());
-                }
-
-                var dumpData = JSON.stringify(this.queryTable);
-
-                fileWriter.write(dumpData);
-
-            }, this.fileErrorHandler);
-        }, this.fileErrorHandler);
+    console.log(queryTable);
+    if (queryTable.length > 0) {
+        var dumpData = JSON.stringify(queryTable);
+        localStorage.setItem("queryTable", dumpData);
     }
-
-    window.requestFileSystem(window.TEMPORARY, 1024*1024, onInitFs, this.fileErrorHandler);
+    // find way to update tableDirty
+    //this.tableDirty = false;
 };
 
 QStore.prototype.evictOneQuery = function() {
@@ -120,6 +89,7 @@ QStore.prototype.addNewData = function(qid, data) {
 		this.dataTable[data['id']] = data;
 	}
 	this.queryTable[qid].push(data['id']);
+    this.tableDirty = true;
 }
 
 QStore.prototype.addQuery = function(query_id, data) {
@@ -136,6 +106,7 @@ QStore.prototype.addQuery = function(query_id, data) {
 	}
 	this.queryTable[query_id] = dids;
     this.frequencyTable[query_id] = 1;
+    this.tableDirty = true;
 }
 
 QStore.prototype.delete = function(list_dids) {
@@ -151,6 +122,7 @@ QStore.prototype.delete = function(list_dids) {
 		}
 		delete this.dataTable[list_dids[i]];
 	}
+    this.tableDirty = true;
 }
 
 QStore.prototype.fileErrorHandler = function(error) {

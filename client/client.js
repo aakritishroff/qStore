@@ -3,64 +3,72 @@ var QStoreClient = function() {
     this.callbackTable = {};
     if (!window.location.origin)
    		window.location.origin = window.location.protocol+"//"+window.location.host;
-    this.qstore = new QStore(window.location.origin);
+    this.qstore = new QStore(window.location.origin, this);
     this.writeSeqNo = 0; // vulnerable to race conditions
-
-    // TODO: load local store into memory
-    this.socket.on('connection', function(msg) {
-    	console.log('Connected to server');
-    });
-
-    this.socket.on('find', function(msg) {
-    	var init_callback = this.callbackTable[msg['qid']]['init_response'];
-    	init_callback(msg['status'], msg['data']);
-    	if (msg['status'] === 'success') {
-    		this.qstore.addQuery(msg['qid'], msg['data']);	
-    	}
-    });
-
-    this.socket.on('update', function(msg) {
-    	var init_callback = this.callbackTable[msg['qid']]['init_response'];
-    	init_callback(msg['status'], msg['data']);
-    });
-
-    this.socket.on('create', function(msg) {
-    	var init_callback = this.callbackTable[msg['qid']]['init_response'];
-    	init_callback(msg['status'], msg['data']);
-    });
-
-    // evict doesn't actually need a response
-    // this.socket.on('evict', function(msg) {
-
-    // });
-
-    this.socket.on('delete', function(msg) {
-    	var init_callback = this.callbackTable[msg['qid']]['init_response'];
-    	init_callback(msg['status'], msg['data']);
-    	delete this.callbackTable[msg['qid']];
-    	if (msg['status'] === 'success') {
-    		this.qstore.delete(msg['data']);
-    	}
-    });
-
-    this.socket.on('data_update', function(msg) {
-    	var update_callback = this.callbackTable[msg['qid']]['update_response'];
-    	update_callback(msg['data']);
-    	this.qstore.updateData(msg['data']);
-    });
-
-    this.socket.on('query_update', function(msg) {
-    	var update_callback = this.callbackTable[msg['qid']]['update_response'];
-    	update_callback(msg['data']);
-    	this.qstore.addNewData(msg['qid'], msg['data']);
-    });
+    this.init();
 }
 
+QStoreClient.prototype.init = function() {
+    // TODO: load local store into memory
+    that = this;
+    this.socket.on('connection', function(msg) {
+        console.log('Connected to server');
+    });
+    
+    this.socket.on('find', function(msg) {
+        var init_callback = that.callbackTable[msg['qid']]['init_response'];
+        init_callback(msg['status'], msg['data']);
+        if (msg['status'] === 'success') {
+            that.qstore.addQuery(msg['qid'], msg['data']);  
+        }
+    });
+    
+    this.socket.on('update', function(msg) {
+        var init_callback = that.callbackTable[msg['qid']]['init_response'];
+        init_callback(msg['status'], msg['data']);
+    });
+    
+    this.socket.on('create', function(msg) {
+        console.log('create response received');
+        console.log(that.callbackTable);
+        var init_callback = that.callbackTable[msg['qid']]['init_response'];
+        init_callback(msg['status'], msg['data']);
+    });
+    
+    // evict doesn't actually need a response
+    // this.socket.on('evict', function(msg) {
+    
+    // });
+    
+    this.socket.on('delete', function(msg) {
+        var init_callback = that.callbackTable[msg['qid']]['init_response'];
+        init_callback(msg['status'], msg['data']);
+        delete that.callbackTable[msg['qid']];
+        if (msg['status'] === 'success') {
+            that.qstore.delete(msg['data']);
+        }
+    });
+    
+    this.socket.on('notify_change', function(msg) {
+        var update_callback = that.callbackTable[msg['qid']]['update_response'];
+        update_callback(msg['data']);
+        that.qstore.updateData(msg['data']);
+    });
+    
+    this.socket.on('notify_new', function(msg) {
+        var update_callback = that.callbackTable[msg['qid']]['update_response'];
+        update_callback(msg['data']);
+        that.qstore.addNewData(msg['qid'], msg['data']);
+    });
+}
+    
 // create a new object/entry on the server
 QStoreClient.prototype.create = function(data, callback) {
+    console.log('create function executed');
 	var qid = this.writeSeqNo;
 	this.writeSeqNo += 1;
-	var msg = {'qid': qid, 'data': data};
+    console.log(data);
+	var msg = {'qid': qid, 'data': JSON.stringify(data)};
 	this.callbackTable[qid] = {'init_response': callback};
 	this.socket.emit('create', msg);
 }
