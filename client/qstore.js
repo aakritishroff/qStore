@@ -61,7 +61,7 @@ window.requestFileSystem(window.PERMANENT, 1024*1024, onInitFs, errorHandler);
 
 QStore.prototype.evictOneQuery = function() {
     var minQueriedTime = Number.MAX_VALUE;
-    var qidsToEvict = []
+    var qidsToEvict = [];
 
     for (var qid in this.frequencyTable) {
         if (this.frequencyTable.qid < minQueriedTime) {
@@ -74,9 +74,14 @@ QStore.prototype.evictOneQuery = function() {
 
     var evictedQid = qidsToEvict[Math.ceil(Math.random() * qidsToEvict.length)];
 
+    var dids = this.queryTable[evictedQid];
+
     delete this.queryTable[evictedQid];
-    delete this.dataTable[evictedQid];
     delete this.frequencyTable[evictedQid];
+    for (var i = 0; i < dids.length; i++) {
+        delete this.dataTable[dids[i]];
+    }
+
 };
 
 QStore.prototype.find = function(qid, criteria) {
