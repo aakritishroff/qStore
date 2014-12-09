@@ -59,11 +59,32 @@ window.requestFileSystem(window.PERMANENT, 1024*1024, onInitFs, errorHandler);
 
 };
 
+QStore.prototype.evictOneQuery = function() {
+    var minQueriedTime = Number.MAX_VALUE;
+    var qidsToEvict = []
+
+    for (var qid in this.frequencyTable) {
+        if (this.frequencyTable.qid < minQueriedTime) {
+            minQueriedTime = this.frequencyTable.qid;
+            qidsToEvict = [qid];
+        } else if (this.frequencyTable.qid = minQueriedTime) {
+            qidsToEvict.push(qid);
+        }
+    }
+
+    var evictedQid = qidsToEvict[Math.ceil(Math.random() * qidsToEvict.length)];
+
+    delete this.queryTable[evictedQid];
+    delete this.dataTable[evictedQid];
+    delete this.frequencyTable[evictedQid];
+};
+
 QStore.prototype.find = function(qid, criteria) {
 	// check to see if we have run the query before. 
 	//   if so then return the data 
 	//   else return a null value
 	if (this.queryTable.hasOwnProperty(qid)) {
+        this.frequencyTable[qid] += 1;
 		var dids = queryTable[qid];
 		var dids_len = dids.length;
 		var results = [];
@@ -114,6 +135,7 @@ QStore.prototype.addQuery = function(query_id, data) {
 		this.dataTable[current['id']] = current;
 	}
 	this.queryTable[query_id] = dids;
+    this.frequencyTable[query_id] = 1;
 }
 
 QStore.prototype.delete = function(list_dids) {
