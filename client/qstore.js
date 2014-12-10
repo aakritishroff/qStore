@@ -69,10 +69,26 @@ QStore.prototype.find = function(qid, criteria) {
 		this.qstoreclient.handleQStoreEvent('query_success', msg);
 	} else {
 		// run search locally
+        var results = [];
+        var resutlsDids = [];
+        for (var did in this.dataTable) {
+            if (this.fitCriteria(did, criteria)) {
+                results.push(this.dataTable[did]);
+                resutlsDids.push(did);
+            }
+        }
+        this.frequencyTable[this.queryTable.length + 1] = 1;
+        this.queryTable[this.queryTable.length + 1] = resutlsDids;
+        //
 		var msg = {'qid': qid, 'criteria': criteria, 'results': results};
 		this.qstoreclient.handleQStoreEvent('query_fail', msg);
 	}
 }
+
+QStore.prototype.fitCriteria = function(did, criteria) {
+        // ToDo: Fit into the criteria structure;
+        return true;
+    };
 
 QStore.prototype.updateData = function(data) {
 	// update the dataTable
