@@ -1,12 +1,36 @@
 'use strict'
 
 var express = require('express');
-var app = express();
+var path = require('path');
+var app = function(req, res) {
+    var filePath = '.' + req.url;
+    if (filePath == './') {
+        filePath = './index.html';
+    }
+    
+    path.exists(filePath, function(exists) {
+        if (exists) {
+            fs.readFile(filePath, function(err, data) {
+                if (err) {
+                    res.writeHead(500);
+                    res.end('Error loading index.html');
+                } else {                
+                    res.writeHead(200, {'Content-Type': 'text/html'});
+                    res.end(data, 'utf-8');
+                }
+            });
+        } else {
+            res.writeHead(404);
+            res.end();
+        }
+    });
+}
 
 
 var server = require('http').createServer(app);
 var io = require('socket.io').listen(server);
-var _ = require('underscore')
+var _ = require('underscore');
+var fs = require('fs');
 
 var dict = require('dict');
 
