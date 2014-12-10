@@ -54,9 +54,11 @@ QStore.prototype.evictOneQuery = function() {
 };
 
 QStore.prototype.find = function(qid, criteria) {
-	// check to see if we have run the query before. 
-	//   if so then return the data 
-	//   else return a null value
+	// check the query format first;
+    if (Object.keys(criteria).length !== 1) {
+        return "criteria format is not right."
+    };
+    // check to see if the query has been executed before;
 	if (this.queryTable.hasOwnProperty(qid)) {
         this.frequencyTable[qid] += 1;
 		var dids = queryTable[qid];
@@ -86,9 +88,36 @@ QStore.prototype.find = function(qid, criteria) {
 }
 
 QStore.prototype.fitCriteria = function(did, criteria) {
-        // ToDo: Fit into the criteria structure;
-        return true;
+    if (Object.keys(criteria).length !== 1) {
+        return "The criteria format is not right";
     };
+    var filterKey = Object.keys(criteria)[0];
+    if (typeof(criteria[filterKey]) === "number") {
+        if (did[filterKey] === criteria[filterKey]) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    } else {
+        var relation = Object.keys(criteria[filterKey])[0];
+    }
+    if (relation === '$gt') {
+        if (did[filterKey] > criteria[filterKey][relation]) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    if (relation === "$lt") {
+        if (did[filterKey] < criteria[filterKey][relation]) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    return false;
+};
 
 QStore.prototype.updateData = function(data) {
 	// update the dataTable
