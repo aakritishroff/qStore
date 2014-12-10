@@ -19,7 +19,7 @@ QStoreClient.prototype.init = function() {
     this.socket.on('find', function(msg) {
         var init_callback = that.callbackTable[msg['qid']]['init_response'];
         init_callback(msg['status'], msg['data']);
-        if (msg['status'] === 'success') {
+        if (msg['status'] === 'OK') {
             that.qstore.addQuery(msg['qid'], msg['data']['docs']);  
         }
     });
@@ -45,7 +45,7 @@ QStoreClient.prototype.init = function() {
         var init_callback = that.callbackTable[msg['qid']]['init_response'];
         init_callback(msg['status'], msg['data']);
         delete that.callbackTable[msg['qid']];
-        if (msg['status'] === 'success') {
+        if (msg['status'] === 'OK') {
             that.qstore.delete(msg['data']);
         }
     });
