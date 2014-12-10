@@ -18,7 +18,7 @@ QStoreClient.prototype.init = function() {
     
     this.socket.on('find', function(msg) {
         var init_callback = that.callbackTable[msg['qid']]['init_response'];
-        init_callback(msg['status'], msg['data']);
+        init_callback(msg['status'], msg['data']['docs']);
         if (msg['status'] === 'OK') {
             that.qstore.addQuery(msg['qid'], msg['data']['docs']);  
         }
@@ -26,7 +26,7 @@ QStoreClient.prototype.init = function() {
     
     this.socket.on('update', function(msg) {
         var init_callback = that.callbackTable[msg['qid']]['init_response'];
-        init_callback(msg['status'], msg['data']);
+        init_callback(msg['status']);
     });
     
     this.socket.on('create', function(msg) {
@@ -50,13 +50,13 @@ QStoreClient.prototype.init = function() {
         }
     });
     
-    this.socket.on('notify_change', function(msg) {
+    this.socket.on('notify-update', function(msg) {
         var update_callback = that.callbackTable[msg['qid']]['update_response'];
         update_callback(msg['data']);
         that.qstore.updateData(msg['data']);
     });
     
-    this.socket.on('notify_new', function(msg) {
+    this.socket.on('notify-new', function(msg) {
         var update_callback = that.callbackTable[msg['qid']]['update_response'];
         update_callback(msg['data']);
         that.qstore.addNewData(msg['qid'], msg['data']);
