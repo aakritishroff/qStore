@@ -1,0 +1,26 @@
+<html>
+  <head>
+    <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/md5.js" type="text/javascript"></script>
+    <script src="client/client.js" type="text/javascript"></script>
+    <script src="client/qstore.js" type="text/javascript"></script>
+    <script src="https://cdn.socket.io/socket.io-1.2.1.js"></script>
+  </head>
+  <body>
+    <h1> qStore Demo </h1>
+    <script> 
+      var qclient = new QStoreClient();
+      a = {name: 'Happy', age: 22}
+      b = {'name': 'Aakriti', 'age': 23}
+      c = {'name': 'Shaun', 'age': 25}
+      qclient.create(a, function(status, data) {
+          console.log('Create Callback: ' + status + " " + JSON.stringify(data));
+      });
+    
+      setTimeout(function() {
+          qclient.find({'name': 'Happy'}, function(qid, data) {
+          console.log('Find Callback: ' + JSON.stringify(data));
+        });
+          }, 3000);
+    </script>
+  </body>
+</html>
