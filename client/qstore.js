@@ -12,20 +12,20 @@ var QStore = function (appname, qstoreclient) {
         console.log("ls: " + localStorage.queryTable);
         this.queryTable = JSON.parse(localStorage.queryTable);
     }
-    setInterval(this.dumpToFile, 30000, this.queryTable, this.tableDirty);
+    setInterval(this.dumpToFile, 30000, this);
 };
 
 //TODO: Happy
 
-QStore.prototype.dumpToFile = function(queryTable, tableDirty) {
+QStore.prototype.dumpToFile = function(qStoreObj) {
     console.log("dumping to file");
-    console.log(queryTable);
-    if (queryTable.length > 0) {
-        var dumpData = JSON.stringify(queryTable);
+    console.log(qStoreObj.queryTable);
+    if (qStoreObj.queryTable.length > 0 && qStoreObj.tableDirty) {
+        var dumpData = JSON.stringify(qStoreObj.queryTable);
         localStorage.setItem("queryTable", dumpData);
     }
     // find way to update tableDirty
-    //this.tableDirty = false;
+    qStoreObj.tableDirty = false;
 };
 
 QStore.prototype.evictOneQuery = function() {
@@ -57,6 +57,7 @@ QStore.prototype.find = function(qid, criteria) {
 	// check to see if we have run the query before. 
 	//   if so then return the data 
 	//   else return a null value
+    console.log("qstore find begin");
 	if (this.queryTable.hasOwnProperty(qid)) {
         this.frequencyTable[qid] += 1;
 		var dids = queryTable[qid];
@@ -69,7 +70,9 @@ QStore.prototype.find = function(qid, criteria) {
 		this.qstoreclient.handleQStoreEvent('query_success', msg);
 	} else {
 		// run search locally
+        results = [];
 		var msg = {'qid': qid, 'criteria': criteria, 'results': results};
+        this.addQuery(qid, results);
 		this.qstoreclient.handleQStoreEvent('query_fail', msg);
 	}
 }
