@@ -19,7 +19,7 @@ QStoreClient.prototype.init = function() {
         var init_callback = that.callbackTable[msg['qid']]['init_response'];
         init_callback(msg['status'], msg['data']);
         if (msg['status'] === 'success') {
-            that.qstore.addQuery(msg['qid'], msg['data']);  
+            that.qstore.addQuery(msg['qid'], msg['data']['docs']);  
         }
     });
     
@@ -30,7 +30,7 @@ QStoreClient.prototype.init = function() {
     
     this.socket.on('create', function(msg) {
         console.log('create response received');
-        console.log(that.callbackTable);
+        console.log('callback table: ' + JSON.stringify(that.callbackTable));
         var init_callback = that.callbackTable[msg['qid']]['init_response'];
         init_callback(msg['status'], msg['data']);
     });
@@ -67,7 +67,7 @@ QStoreClient.prototype.create = function(data, callback) {
     console.log('create function executed');
 	var qid = this.writeSeqNo;
 	this.writeSeqNo += 1;
-    console.log(data);
+    //console.log(data);
 	var msg = {'qid': qid, 'data': JSON.stringify(data)};
 	this.callbackTable[qid] = {'init_response': callback};
 	this.socket.emit('create', msg);
@@ -110,9 +110,10 @@ QStoreClient.prototype.handleQStoreEvent = function(evt_type, data) {
 			this.callbackTable[qid]['init_response'](data['results']);
 			break;
 		case "query_fail":
+            console.log('query_fail');
 			var msg = {'qid': data['qid'], 'criteria': data['criteria']};
 			var local_results = data['results'];
-			this.callbackTable[data['qid']]['init_response'](local_results);
+			this.callbackTable[data['qid']]['init_response']('success', local_results);
 			this.socket.emit('find', msg);
 			break;
 		case "query_evicted":

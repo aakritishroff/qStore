@@ -42,6 +42,34 @@ var addQuery = function(qid, qString, client){
 	}
 };
 
+var addClient = function(did, client){
+	if (subscriptions.has(did)){
+		var clients = subscriptions.get(did);
+		if (clients.indexOf(client) == -1){
+			clients.push(client);
+			subscriptions.set(did, clients);
+		}
+	} else {
+		var clients = [];
+		clients.push(client);
+		subscriptions.set(did, clients);
+	}
+};
+
+var addDid = function(client, did){
+	if (subscribedTo.has(client)){
+		var dids = subscribedTo.get(client);
+		if (dids.indexOf(did) == -1){
+			dids.push(did);
+			subscribedTo.set(client, dids);
+		}
+	} else {
+		var dids = [];
+		dids.push(did);
+		subscribedTo.set(did, dids);
+	}
+}
+
 var Query = function(qString, client){
 	this.qString = qString;
 	this.clients = []
@@ -110,9 +138,11 @@ io.sockets.on('connection', function(socket){
 		testData.insert(query.data, {w:1}, function(err, result){
 			fatalError(err);
 			var newdid = new ObjectId(result[0]._id);
-			var clist = []
-			subscriptions.set(newdid.toHexString(), clist.push(socket.id));
-			subscribedTo.set(socket.id, newdid);
+			var clist = [];
+			clist.push(socket.id);
+			subscriptions.set(newdid.toHexString(), clist);
+			addDid(socket.id, newdid.toHexString());
+			//subscribedTo.set(socket.id, newdid);
 
 			//INSERT INTO TEMP COLLECTION TO RERUN QUERIES
 			tempData.insert(query.data, {w:1}, function(temperr, tempresult){
@@ -129,13 +159,15 @@ io.sockets.on('connection', function(socket){
 							console.log(value);
 							console.log(key);
 							toNotify.forEach(function(entry){
-								logMessage("Notifying client: " + entry);
-								io.sockets.to(entry).emit('notify-new', { seq: 1, data: {qid: key, did: newdid.toHexString(), doc: valNotify[0] }, status: 'OK' });
+								logMessage("Notifying client about new object: " + entry);
+								if (subscribedTo.has(entry)){
+									io.sockets.to(entry).emit('notify-new', { seq: 1, data: {qid: key, did: newdid.toHexString(), doc: valNotify[0] }, status: 'OK' });
+								}	
 							});
-							
 						}
-					});
+					});			
 				});
+
 				tempData.remove({}, {w:1}, function(rm_rr, numRemoved){
 					logMessage("Num records removed from tempData: " + numRemoved);
 				});
@@ -146,40 +178,48 @@ io.sockets.on('connection', function(socket){
 	socket.on('find', function(query){
 		logMessage('Recieved Find query with qid: ' + query.qid + ' data: ' + JSON.stringify(query.criteria));
 		testData.find(query.criteria).toArray(function(err, result){
+                logMessage('status: ' + err + ' result: ' + JSON.stringify(result));
 				fatalError(err);
 				addQuery(query.qid, query, socket.id);
 				socket.emit('find', {qid: query.qid, data: {docs: result}, status: 'OK'});
-		});
-		
-		
-		//console.log(queryPool.size);
-
-		/*else {
-			logMessage('Found query with qid:' + query.qid);
-			var result = queryPool.get(query.qid);
-			socket.emit('message', {qid: query.qid, docs: result, status: 'OK'});
-			addQuery(query.qid, query, socket.id, result);
-			
-		}*/
-
-		/*				var count = tempData.count({}, function(e, c){
-						logMessage('After insert num of objects in tempData. Count: ' + c);
-					}); */
-
-				/*,function(err_rm, numRemoved){
-					fatalError(err_rm);
-					var count = tempData.count({}, function(e, c){
-						logMessage('Removed all objects from tempData. numRemoved: ' + numRemoved);
-					});	
-				});*/
-				
+				result.forEach(function(entry){
+					var newObj = new ObjectId(entry._id);
+					var newdid = newObj.toHexString();
+					addClient(newdid, socket.id);
+					addDid(socket.id, newdid); 
+				});
+		});			
 	});
 
 
 	socket.on('update', function(query){
-
+		logMessage('Recieved Update query with qid: ' + query.qid + ' data: ' + JSON.stringify(query.data) + ' criteria: ' + JSON.stringify(query.criteria));
+		var dids = [];
+		testData.find(query.criteria).toArray(function(err2, before){
+			before.forEach(function(entry){
+				dids.push(entry._id);
+			});
+		});
+		testData.update(criteria, {$set: query.data}, {multi:true}).toArray(function(err, writeset){
+			fatalError(err);
+			socket.emit('update', {qid: query.qid, status: 'OK'});
+			dids.forEach(function(id){
+				testData.find({_id: id}).toArray(function(errfind, newEntry){
+					fatalError(errfind);
+					if (subscriptions.has(id.toHexString())){
+						var toNotify = subscriptions.get(id.toHexString())
+						toNotify.forEach(function(client){
+							logMessage("Notifying client about update: " + client);
+							if (subscribedTo.has(client)){
+								io.sockets.to(client).emit('notify-update', {data: {did: id.toHexString(), doc: newEntry[0]}, status: 'OK' });
+							}	
+						});
+					}
+				});
+			});
+		});
 	});
-
+			
 	socket.on('delete', function(query){
 
 	});
@@ -189,23 +229,11 @@ io.sockets.on('connection', function(socket){
 		logMessage('Client disconnected. Socket id: ' + socket.id + '\n');
 		var i = allClients.indexOf(socket.id);
 		if(i != -1) {allClients.splice(i, 1);}
+		subscribedTo.delete(socket.id);
 		--connCounter;
 	});
 });
 
 	
-/*	socket.on('connection name', 
-		function(user){
-			testData.insert({client:user.name});
-			testData.find().toArray(function(err, docs){
-			fatalError(err);
-			logMessage('Found docs');
-			console.dir(docs);
-		}); 
-		io.sockets.emit('new user', user.name + " has joined.");
-	});*/
-
-
-
 
 

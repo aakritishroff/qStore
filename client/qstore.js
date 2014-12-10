@@ -18,8 +18,8 @@ var QStore = function (appname, qstoreclient) {
 //TODO: Happy
 
 QStore.prototype.dumpToFile = function(qStoreObj) {
-    console.log("dumping to file");
-    console.log(qStoreObj.queryTable);
+    console.log("dumping to file" + JSON.stringify(qStoreObj.queryTable));
+//     console.log(qStoreObj.queryTable);
     if (qStoreObj.queryTable.length > 0 && qStoreObj.tableDirty) {
         var dumpData = JSON.stringify(qStoreObj.queryTable);
         localStorage.setItem("queryTable", dumpData);
@@ -54,10 +54,18 @@ QStore.prototype.evictOneQuery = function() {
 };
 
 QStore.prototype.find = function(qid, criteria) {
+
 	// check to see if we have run the query before. 
 	//   if so then return the data 
 	//   else return a null value
     console.log("qstore find begin");
+
+	// check the query format first;
+    if (Object.keys(criteria).length !== 1) {
+        return "criteria format is not right."
+    };
+    // check to see if the query has been executed before;
+
 	if (this.queryTable.hasOwnProperty(qid)) {
         this.frequencyTable[qid] += 1;
 		var dids = queryTable[qid];
@@ -70,12 +78,54 @@ QStore.prototype.find = function(qid, criteria) {
 		this.qstoreclient.handleQStoreEvent('query_success', msg);
 	} else {
 		// run search locally
-        results = [];
+        var results = [];
+        var resutlsDids = [];
+        for (var did in this.dataTable) {
+            if (this.fitCriteria(did, criteria)) {
+                results.push(this.dataTable[did]);
+                resutlsDids.push(did);
+            }
+        }
+        this.frequencyTable[this.queryTable.length + 1] = 1;
+        this.queryTable[this.queryTable.length + 1] = resutlsDids;
+        
 		var msg = {'qid': qid, 'criteria': criteria, 'results': results};
         this.addQuery(qid, results);
 		this.qstoreclient.handleQStoreEvent('query_fail', msg);
 	}
 }
+
+QStore.prototype.fitCriteria = function(did, criteria) {
+    if (Object.keys(criteria).length !== 1) {
+        return "The criteria format is not right";
+    };
+    var filterKey = Object.keys(criteria)[0];
+    if (typeof(criteria[filterKey]) === "number") {
+        if (did[filterKey] === criteria[filterKey]) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    } else {
+        var relation = Object.keys(criteria[filterKey])[0];
+    }
+    if (relation === '$gt') {
+        if (did[filterKey] > criteria[filterKey][relation]) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    if (relation === "$lt") {
+        if (did[filterKey] < criteria[filterKey][relation]) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    return false;
+};
 
 QStore.prototype.updateData = function(data) {
 	// update the dataTable

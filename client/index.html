@@ -12,11 +12,14 @@
       b = {'name': 'Aakriti', 'age': 23}
       c = {'name': 'Shaun', 'age': 25}
       qclient.create(a, function(status, data) {
-          console.log('Create Callback: ' + status + " " + data);
+          console.log('Create Callback: ' + status + " " + JSON.stringify(data));
       });
-      qclient.find({'name': 'Happy'}, function(qid, data) {
-          console.log('Find Callback: ' + data);
-      });
+    
+      setTimeout(function() {
+          qclient.find({'name': 'Happy'}, function(qid, data) {
+          console.log('Find Callback: ' + JSON.stringify(data));
+        });
+          }, 3000);
     </script>
   </body>
 </html>
