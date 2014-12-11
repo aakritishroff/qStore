@@ -159,7 +159,7 @@ io.sockets.on('connection', function(socket){
 
 	socket.on('create', function(query){
 		logMessage('Recieved Create query with qid: ' + query.qid + 'data: ' + JSON.stringify(query.data));
-		testData.insert(query.data, {w:1}, function(err, result){
+		testData.insert(JSON.parse(query.data), {w:1}, function(err, result){
 			fatalError(err);
 			var newdid = new ObjectId(result[0]._id);
 			var clist = [];
@@ -235,7 +235,7 @@ io.sockets.on('connection', function(socket){
 						toNotify.forEach(function(client){
 							logMessage("Notifying client about update: " + client);
 							if (subscribedTo.has(client)){
-								io.sockets.to(client).emit('notify-update', {data: newEntry[0]}, status: 'OK' });
+								io.sockets.to(client).emit('notify-update', {data: newEntry[0], status: 'OK' });
 							}	
 						});
 					}

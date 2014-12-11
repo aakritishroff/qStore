@@ -18,9 +18,9 @@ QStoreClient.prototype.init = function() {
     
     this.socket.on('find', function(msg) {
         var init_callback = that.callbackTable[msg['qid']]['init_response'];
-        init_callback(msg['status'], msg['data']['docs']);
+        init_callback(msg['status'], msg['data']);
         if (msg['status'] === 'OK') {
-            that.qstore.addQuery(msg['qid'], msg['data']['docs']);  
+            that.qstore.addQuery(msg['qid'], msg['data']);  
         }
     });
     
@@ -107,14 +107,15 @@ QStoreClient.prototype.delete = function(criteria, callback) {
 QStoreClient.prototype.handleQStoreEvent = function(evt_type, data) {
 	switch(evt_type) {
 		case "query_success":
+            console.log('query-success');
 			var qid = data['qid'];
-			this.callbackTable[qid]['init_response'](data['results']);
+			this.callbackTable[qid]['init_response']('OK', data['results']);
 			break;
 		case "query_fail":
             console.log('query_fail');
 			var msg = {'qid': data['qid'], 'criteria': data['criteria']};
 			var local_results = data['results'];
-			this.callbackTable[data['qid']]['init_response']('success', local_results);
+			this.callbackTable[data['qid']]['init_response']('OK', local_results);
 			this.socket.emit('find', msg);
 			break;
 		case "query_evicted":
