@@ -8,7 +8,7 @@ var app = function(req, res) {
         filePath = './index.html';
     }
     
-    path.exists(filePath, function(exists) {
+    fs.exists(filePath, function(exists) {
         if (exists) {
             fs.readFile(filePath, function(err, data) {
                 if (err) {
@@ -55,14 +55,16 @@ function fatalError(err) {
 }
 
 var addQuery = function(qid, qString, client){
-	var qData = queryPool.get(qid);
-	if (qData != undefined) {
+	if (queryPool.has(qid)) {
+		var qData = queryPool.get(qid);
 		if (qData.clients.indexOf(client) == -1){
 			qData.clients.push(client);
+			queryPool.set(qid, qData);
 		}
 	}
 	else {
-		queryPool.set(qid, new Query(qString, client));
+		var newQ = new Query(qString, client);
+		queryPool.set(qid, newQ);
 	}
 };
 
@@ -101,21 +103,50 @@ var Query = function(qString, client){
 };
 
 //setup mongodb
-
+var db;
+var testData;
+var tempData;
+//var qStoreData;
 var mongo = require('mongodb'),
 	ObjectId = require('mongodb').ObjectID,
 	dbName = 'test-db',
 	dbHost = 'localhost',
 	dbPort = 27017,
-	mongoServer = new mongo.Server(dbHost,dbPort,{}),
-	db = new mongo.Db(dbName, mongoServer, {w: 'majority', auto_reconnect: true}),
-	testData;
-var tempData;
-var qStoreData;
+	MongoClient = require('mongodb').MongoClient,
+	MongoServer = require('mongodb').Server
+	//mongoServer = new mongo.Server(dbHost,dbPort,{}),
+	var mongoClient = new MongoClient(new MongoServer(dbHost, dbPort));
+	mongoClient.open(function(err, mongoClient){
+		db = mongoClient.db(dbName,{auto_reconnect:true});
+		db.createCollection("testData", function(err2, collection){
+		fatalError(err2);
+		testData = collection;
+	});
+
+	/*db.createCollection("qStoreData", function(err3, collection){
+		fatalError(err3);
+		qStoreData = collection;
+	});*/
+
+	db.createCollection("tempData", function(err3, collection){
+		fatalError(err3);
+		tempData = collection;
+	});
+	});
+	//db = new mongo.Db(dbName, mongoServer, {w: 'majority', auto_reconnect: true}),
+
+
+/*var MongoClient = require('mongodb').MongoClient
+  , Server = require('mongodb').Server;
+
+var mongoClient = new MongoClient(new Server('localhost', 27017));
+mongoClient.open(function(err, mongoClient) {
+
+});*/
 
 
 //init
-db.open(function(err){
+/*db.open(function(err){
 	fatalError(err);
 	db.createCollection("testData", function(err2, collection){
 		fatalError(err2);
@@ -131,10 +162,8 @@ db.open(function(err){
 		fatalError(err3);
 		tempData = collection;
 	});
-
-
 });
-
+*/
 
 
 /**
@@ -159,50 +188,47 @@ io.sockets.on('connection', function(socket){
 
 	socket.on('create', function(query){
 		logMessage('Recieved Create query with qid: ' + query.qid + 'data: ' + JSON.stringify(query.data));
-		testData.insert(query.data, {w:1}, function(err, result){
+		testData.insert(JSON.parse(query.data), {w:1}, function(err, result){ //{w:1},
 			fatalError(err);
 			var newdid = new ObjectId(result[0]._id);
 			var clist = [];
 			clist.push(socket.id);
-			subscriptions.set(newdid.toHexString(), clist);
+			addClient(newdid.toHexString(), clist);
 			addDid(socket.id, newdid.toHexString());
-			//subscribedTo.set(socket.id, newdid);
 
 			//INSERT INTO TEMP COLLECTION TO RERUN QUERIES
-			tempData.insert(query.data, {w:1}, function(temperr, tempresult){
+			tempData.insert(JSON.parse(query.data), {w:1}, function(temperr, tempresult){
 				fatalError(err);
-				socket.emit('create', {qid: query.qid, data: {did: newdid.toHexString(), doc: result[0]}, status: 'OK'});
+				logMessage("New objected added to tempData")
+				socket.emit('create', {qid: query.qid, data: {doc: result[0]}, status: 'OK'});
 				queryPool.forEach(function(value, key){
 					var repeatQ = value.qString;
 					var toNotify = value.clients;
 
-					//RERUN QUERIES
 					tempData.find(repeatQ.criteria).toArray(function(err, valNotify){
 						fatalError(err);
 						if (valNotify.length != 0){
-							console.log(value);
-							console.log(key);
 							toNotify.forEach(function(entry){
 								logMessage("Notifying client about new object: " + entry);
 								if (subscribedTo.has(entry)){
-									io.sockets.to(entry).emit('notify-new', { seq: 1, data: {qid: key, did: newdid.toHexString(), doc: valNotify[0] }, status: 'OK' });
+									io.sockets.to(entry).emit('notify-new', {data: {qid: key, doc: valNotify[0] }, status: 'OK' });
 								}	
 							});
 						}
+						tempData.remove({}, {w:1}, function(rm_err, numRemoved){
+							fatalError(rm_err);
+							logMessage("New Obj removed from tempData");
+						});
 					});			
-				});
-
-				tempData.remove({}, {w:1}, function(rm_rr, numRemoved){
-					logMessage("Num records removed from tempData: " + numRemoved);
 				});
 			});
 		});
 	});
 
 	socket.on('find', function(query){
-		logMessage('Recieved Find query with qid: ' + query.qid + ' data: ' + JSON.stringify(query.criteria));
+		logMessage('Recieved Find query with qid: ' + query.qid + ' data: ' + query.criteria);
 		testData.find(query.criteria).toArray(function(err, result){
-                logMessage('status: ' + err + ' result: ' + JSON.stringify(result));
+                //logMessage('status: ' + err + ' result: ' + JSON.stringify(result));
 				fatalError(err);
 				addQuery(query.qid, query, socket.id);
 				socket.emit('find', {qid: query.qid, data: {docs: result}, status: 'OK'});
@@ -218,29 +244,35 @@ io.sockets.on('connection', function(socket){
 
 	socket.on('update', function(query){
 		logMessage('Recieved Update query with qid: ' + query.qid + ' data: ' + JSON.stringify(query.data) + ' criteria: ' + JSON.stringify(query.criteria));
+		
 		var dids = [];
 		testData.find(query.criteria).toArray(function(err2, before){
 			before.forEach(function(entry){
 				dids.push(entry._id);
 			});
 		});
-		testData.update(criteria, {$set: query.data}, {multi:true}).toArray(function(err, writeset){
+		
+		testData.update(query.criteria, {$set: query.data}, {multi:true}, function(err, response){
 			fatalError(err);
-			socket.emit('update', {qid: query.qid, status: 'OK'});
-			dids.forEach(function(id){
-				testData.find({_id: id}).toArray(function(errfind, newEntry){
+			socket.emit('update', {qid: query.qid, dids: dids, status: 'OK'});
+			console.log("notifying loop len dids"+ dids.length);
+			for (var i=0;i<dids.length;i++) {
+				var checkDID = dids[i];
+				testData.find({_id: checkDID}).toArray(function(errfind, newEntry){
+					//console.log("id found"+ checkDID.toHexString());
 					fatalError(errfind);
-					if (subscriptions.has(id.toHexString())){
-						var toNotify = subscriptions.get(id.toHexString())
-						toNotify.forEach(function(client){
-							logMessage("Notifying client about update: " + client);
-							if (subscribedTo.has(client)){
-								io.sockets.to(client).emit('notify-update', {data: {did: id.toHexString(), doc: newEntry[0]}, status: 'OK' });
-							}	
-						});
+					if (subscriptions.has(checkDID.toHexString())){
+						//console.log("subscription found");
+						var toNotify = subscriptions.get(checkDID.toHexString())
+						console.log("notifying loop len toNotify"+ toNotify[0]);
+						for (var j=0;i<toNotify.length;j++) {
+							notifyClient = toNotify[j];
+							logMessage("Notifying client about update: " + notifyClient);
+							io.sockets.to(notifyClient).emit('notify-update', {data: {doc: newEntry[0]}, status: 'OK' });
+						}
 					}
 				});
-			});
+			}
 		});
 	});
 			
@@ -258,6 +290,19 @@ io.sockets.on('connection', function(socket){
 	});
 });
 
-	
+/*			dids.forEach(function(id){
+				testData.find({_id: id}).toArray(function(errfind, newEntry){
+					fatalError(errfind);
+					if (subscriptions.has(id.toHexString())){
+						var toNotify = subscriptions.get(id.toHexString())
+						toNotify.forEach(function(client){
+							logMessage("Notifying client about update: " + client);
+							if (subscribedTo.has(client)){
+								io.sockets.to(client).emit('notify-update', {data: {doc: newEntry[0]}, status: 'OK' });
+							}	
+						});
+					}
+				});
+			});*/
 
 
