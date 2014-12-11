@@ -188,7 +188,7 @@ io.sockets.on('connection', function(socket){
 
 	socket.on('create', function(query){
 		logMessage('Recieved Create query with qid: ' + query.qid + 'data: ' + JSON.stringify(query.data));
-		testData.insert(JSON.parse(query.data), {w:1}, function(err, result){ //{w:1},
+		testData.insert(JSON.parse(query.data), {w:1}, function(err, result){
 			fatalError(err);
 			var newdid = new ObjectId(result[0]._id);
 			var clist = [];
@@ -200,7 +200,7 @@ io.sockets.on('connection', function(socket){
 			tempData.insert(JSON.parse(query.data), {w:1}, function(temperr, tempresult){
 				fatalError(err);
 				logMessage("New objected added to tempData")
-				socket.emit('create', {qid: query.qid, data: {doc: result[0]}, status: 'OK'});
+				socket.emit('create', {qid: query.qid, data: result[0], status: 'OK'});
 				queryPool.forEach(function(value, key){
 					var repeatQ = value.qString;
 					var toNotify = value.clients;
@@ -211,7 +211,7 @@ io.sockets.on('connection', function(socket){
 							toNotify.forEach(function(entry){
 								logMessage("Notifying client about new object: " + entry);
 								if (subscribedTo.has(entry)){
-									io.sockets.to(entry).emit('notify-new', {data: {qid: key, doc: valNotify[0] }, status: 'OK' });
+									io.sockets.to(entry).emit('notify-new', {qid: key, data: valNotify[0], status: 'OK' });
 								}	
 							});
 						}
@@ -231,7 +231,7 @@ io.sockets.on('connection', function(socket){
                 //logMessage('status: ' + err + ' result: ' + JSON.stringify(result));
 				fatalError(err);
 				addQuery(query.qid, query, socket.id);
-				socket.emit('find', {qid: query.qid, data: {docs: result}, status: 'OK'});
+				socket.emit('find', {qid: query.qid, data: result, status: 'OK'});
 				result.forEach(function(entry){
 					var newObj = new ObjectId(entry._id);
 					var newdid = newObj.toHexString();

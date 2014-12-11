@@ -4,23 +4,100 @@
     <script src="client/client.js" type="text/javascript"></script>
     <script src="client/qstore.js" type="text/javascript"></script>
     <script src="https://cdn.socket.io/socket.io-1.2.1.js"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
   </head>
   <body>
     <h1> qStore Demo </h1>
     <script> 
-      var qclient = new QStoreClient();
-      a = {name: 'Happy', age: 22}
-      b = {'name': 'Aakriti', 'age': 23}
-      c = {'name': 'Shaun', 'age': 25}
-      qclient.create(a, function(status, data) {
-          console.log('Create Callback: ' + status + " " + JSON.stringify(data));
-      });
+//       var qclient = new QStoreClient();
+//       a = {name: 'Happy', age: 22}
+//       b = {'name': 'Aakriti', 'age': 23}
+//       c = {'name': 'Shaun', 'age': 25}
+//       qclient.create(a, function(status, data) {
+//           console.log('Create Callback: ' + status + " " + JSON.stringify(data));
+//       });
+//       qclient.find({'name': 'Happy'}, function(qid, data) {
+//         console.log('Find Callback: ' + JSON.stringify(data));
+//       });
+//       qclient.find({'name': 'Happy'}, function(qid, data) {
+//           console.log('Find Callback: ' + JSON.stringify(data));
+//       });
+    </script>
     
-      setTimeout(function() {
-          qclient.find({'name': 'Happy'}, function(qid, data) {
-          console.log('Find Callback: ' + JSON.stringify(data));
-        });
-          }, 3000);
+    <script> // Test Add Query
+        /*var handler = {
+            handleQStoreEvent: function(evt_type, data) {
+            }
+        }
+        var qstore = new QStore(handler);
+        var a = {_id: '0', name: 'Happy', age: 22};
+        var b = {_id: '1', 'name': 'Aakriti', 'age': 23};
+        var c = {_id: '2', 'name': 'Shaun', 'age': 25};
+        
+        // Test 1
+        qstore.addQuery('0', [a]);
+        // Test 1a
+        if (qstore.queryTable.hasOwnProperty('0')) {
+            console.log(qstore.queryTable);
+            if (qstore.queryTable['0'][0] === a._id) {
+                console.log("Test 1a: SUCCESS! did added to querytable");
+            } else {
+                console.log("Test 1a: FAIL! did not in querytable");
+            }
+        } else {
+            console.log("Test 1a: FAIL! qid not added to query table");
+        }
+        
+        // Test 1b
+        if (qstore.tableDirty) {
+            console.log("Test 1b: SUCCESS! table has been labeled dirty");
+        } else {
+            console.log("Test 1b: FAIL! table not dirty");
+        }
+        
+        // Test 1c 
+        if (qstore.frequencyTable.hasOwnProperty('0')) {
+            if (qstore.frequencyTable['0'] === 1) {
+                console.log("Test 1c: SUCCESS! frequency updated");
+            } else {
+                console.log("Test 1c: FAIL! frequency not updated");
+            }
+        } else {
+            console.log("Test 1c: FAIL! qid not added to frequency table");
+        }
+        
+        // Test 2
+        qstore.addQuery('1', [a, b]);
+        if (qstore.queryTable.hasOwnProperty('0')) {
+            console.log(qstore.queryTable);
+            if (qstore.queryTable['1'].length === 2) {
+                console.log("Test 2a: SUCCESS! did added to querytable");
+            } else {
+                console.log("Test 2a: FAIL! did not in querytable");
+            }
+        } else {
+            console.log("Test 2a: FAIL! qid not added to query table");
+        } */       
+    </script>
+    
+    <script>
+        var handler = {
+        handleQStoreEvent: function(evt_type, data) {
+            }
+        }
+        var qstore = new QStore(handler);
+        var a = {_id: '0', name: 'Happy', age: 22};
+        var b = {_id: '1', 'name': 'Aakriti', 'age': 23};
+        var c = {_id: '2', 'name': 'Shaun', 'age': 25};
+        qstore.addQuery('0', [a]);
+        console.log(JSON.stringify(qstore.queryTable));
+        console.log("Test 3a: " + (qstore.queryTable['0'].length === 1)); 
+        qstore.addNewData('0', b);
+        console.log("Test 3b: " + (qstore.queryTable['0'].length === 2));
+        qstore.addNewData('1', c);
+        console.log("Test 3c: " + (qstore.queryTable.hasOwnProperty('1') === false));
+        qstore.updateData(['0'], {age: 40});
+        console.log("Test 4a: " + (qstore.dataTable['0'].age === 40));
     </script>
   </body>
 </html>

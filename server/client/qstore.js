@@ -1,7 +1,6 @@
 //var jf = requrie("jsonfile");
 //var util = require("util");
-var QStore = function (appname, qstoreclient) {
-	this.appname = appname;
+var QStore = function (qstoreclient) {
 	this.queryTable = {}; // maps query_id to list of obj ids
 	this.dataTable = {}; // maps obj_id to it's data
     this.frequencyTable = {};
@@ -18,8 +17,7 @@ var QStore = function (appname, qstoreclient) {
 //TODO: Happy
 
 QStore.prototype.dumpToFile = function(qStoreObj) {
-    console.log("dumping to file" + JSON.stringify(qStoreObj.queryTable));
-//     console.log(qStoreObj.queryTable);
+    console.log("dumping to file " + JSON.stringify(qStoreObj.queryTable));
     if (qStoreObj.queryTable.length > 0 && qStoreObj.tableDirty) {
         var dumpData = JSON.stringify(qStoreObj.queryTable);
         localStorage.setItem("queryTable", dumpData);
@@ -68,7 +66,7 @@ QStore.prototype.find = function(qid, criteria) {
 
 	if (this.queryTable.hasOwnProperty(qid)) {
         this.frequencyTable[qid] += 1;
-		var dids = queryTable[qid];
+		var dids = this.queryTable[qid];
 		var dids_len = dids.length;
 		var results = [];
 		for (var i = 0; i < dids_len; i++) {
@@ -128,43 +126,52 @@ QStore.prototype.fitCriteria = function(did, criteria) {
     return false;
 };
 
-QStore.prototype.updateData = function(data) {
+QStore.prototype.updateData = function(dids, data) {
 	// update the dataTable
-	var did = data['id'];
-	if (this.dataTable.hasOwnProperty(did)) {
-		for (var key in data) {
-			if (data.hasOwnProperty(key)) {
-				this.dataTable[did][key] = data[key];
+	for (var i = 0; i < dids.length; i++) {
+		var did = dids[i];
+		if (this.dataTable.hasOwnProperty(did)) {
+			for (var key in data) {
+				if (data.hasOwnProperty(key)) {
+					this.dataTable[did][key] = data[key];
+				}
 			}
 		}
 	}
 }
 
 QStore.prototype.addNewData = function(qid, data) {
-	if (this.dataTable.hasOwnProperty(data['id'])) {
-		this.dataTable[data['id']]['qids'].push(qid);
-	} else {
-		data['qids'] = [qid];
-		this.dataTable[data['id']] = data;
+	if (this.queryTable.hasOwnProperty(qid)) {
+		if (this.dataTable.hasOwnProperty(data['_id'])) {
+			this.dataTable[data['_id']]['qids'].push(qid);
+		} else {
+			data['qids'] = [qid];
+			this.dataTable[data['_id']] = data;
+		}
+		this.queryTable[qid].push(data['_id']);
+		this.tableDirty = true;
 	}
-	this.queryTable[qid].push(data['id']);
-    this.tableDirty = true;
 }
 
 QStore.prototype.addQuery = function(query_id, data) {
 	// addQuery to querytable with obj_ids from data
 	// add the data to the dataTable
 	// add info to the dataTable about relevant qids
-	var dids = [];
 	var data_length = data.length;
+	if (this.queryTable.hasOwnProperty(query_id) === false) {
+        	this.queryTable[query_id] = [];
+		this.frequencyTable[query_id] = 1;
+    	}
 	for (var i = 0; i < data_length; i++) {
 		var current = data[i];
-		dids.push(current['id']);
+	        if (this.queryTable[query_id].indexOf(current['_id']) === -1) {
+        	    this.queryTable[query_id].push(current['_id']);
+		    console.log('adding to query table');
+	        }
 		current['qids'] = query_id;
-		this.dataTable[current['id']] = current;
+		this.dataTable[current['_id']] = current;
 	}
-	this.queryTable[query_id] = dids;
-    this.frequencyTable[query_id] = 1;
+        console.log("Finished: " + JSON.stringify(this.queryTable['0']));
     this.tableDirty = true;
 }
 

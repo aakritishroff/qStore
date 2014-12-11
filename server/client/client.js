@@ -19,14 +19,14 @@ QStoreClient.prototype.init = function() {
     this.socket.on('find', function(msg) {
         var init_callback = that.callbackTable[msg['qid']]['init_response'];
         init_callback(msg['status'], msg['data']);
-        if (msg['status'] === 'success') {
-            that.qstore.addQuery(msg['qid'], msg['data']['docs']);  
+        if (msg['status'] === 'OK') {
+            that.qstore.addQuery(msg['qid'], msg['data']);  
         }
     });
     
     this.socket.on('update', function(msg) {
         var init_callback = that.callbackTable[msg['qid']]['init_response'];
-        init_callback(msg['status'], msg['data']);
+        init_callback(msg['status']);
     });
     
     this.socket.on('create', function(msg) {
@@ -45,18 +45,18 @@ QStoreClient.prototype.init = function() {
         var init_callback = that.callbackTable[msg['qid']]['init_response'];
         init_callback(msg['status'], msg['data']);
         delete that.callbackTable[msg['qid']];
-        if (msg['status'] === 'success') {
+        if (msg['status'] === 'OK') {
             that.qstore.delete(msg['data']);
         }
     });
     
-    this.socket.on('notify_change', function(msg) {
+    this.socket.on('notify-update', function(msg) {
         var update_callback = that.callbackTable[msg['qid']]['update_response'];
         update_callback(msg['data']);
         that.qstore.updateData(msg['data']);
     });
     
-    this.socket.on('notify_new', function(msg) {
+    this.socket.on('notify-new', function(msg) {
         var update_callback = that.callbackTable[msg['qid']]['update_response'];
         update_callback(msg['data']);
         that.qstore.addNewData(msg['qid'], msg['data']);
@@ -107,14 +107,15 @@ QStoreClient.prototype.delete = function(criteria, callback) {
 QStoreClient.prototype.handleQStoreEvent = function(evt_type, data) {
 	switch(evt_type) {
 		case "query_success":
+            console.log('query-success');
 			var qid = data['qid'];
-			this.callbackTable[qid]['init_response'](data['results']);
+			this.callbackTable[qid]['init_response']('OK', data['results']);
 			break;
 		case "query_fail":
             console.log('query_fail');
 			var msg = {'qid': data['qid'], 'criteria': data['criteria']};
 			var local_results = data['results'];
-			this.callbackTable[data['qid']]['init_response']('success', local_results);
+			this.callbackTable[data['qid']]['init_response']('OK', local_results);
 			this.socket.emit('find', msg);
 			break;
 		case "query_evicted":

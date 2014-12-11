@@ -63,9 +63,9 @@ describe("Test Server",function(){
     client1.on('find', function(response){
     response.qid.should.equal('1');
     response.status.should.equal('OK');
-    var docs = response.data.docs;
-    docs[0].should.have.property('author');
-    docs[0].author.should.equal('alice');
+    var data = response.data;
+    data[0].should.have.property('author');
+    data[0].author.should.equal('alice');
     client1.disconnect();
 
    });
@@ -73,7 +73,7 @@ describe("Test Server",function(){
   client2.on('find', function(response){
         response.qid.should.equal('1');
         response.status.should.equal('OK');
-        var docs = response.data.docs;
+        var docs = response.data
         docs[0].should.have.property('author');
         docs[0].author.should.equal('alice');
         client2.disconnect();
@@ -82,7 +82,7 @@ describe("Test Server",function(){
   client3.on('find', function(response){
         response.qid.should.equal('2');
         response.status.should.equal('OK');
-        var docs = response.data.docs;
+        var docs = response.data
         docs[0].should.have.property('author');
         docs[0].author.should.equal('bob');
         client3.disconnect();
@@ -185,7 +185,7 @@ describe("Test Server",function(){
     });
   });
 
-  it('Notify-updates work correctly', function(done){
+ /* it('Notify-updates work correctly', function(done){
     var client1 = io.connect(socketURL, options);
     var client2 = io.connect(socketURL, options);
     var numClient3 = 0;
@@ -217,7 +217,7 @@ describe("Test Server",function(){
       if (response.qid == 506){
         dids.length.should.equal(1);
       }
-    });*/
+    });
  
     client1.on('notify-update', function(response){
       console.log("Notify-update received");
@@ -226,7 +226,7 @@ describe("Test Server",function(){
       done();
     });
 
-  });
+  });*/
 
 
 /*  var numObj = 0;
